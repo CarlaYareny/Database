@@ -60,4 +60,63 @@ let conn;
     
 }
 
-module.exports = {userslist, listUserByID};
+const addUser = async (req = request, res = response)=>{
+    const {
+        username,
+        email,
+        password,
+        name,
+        lastname,
+        phone_number = '',
+        role_id,
+        is_active = 1
+    } = req.body;
+    if (!username || !email || !password || !name || !lastname || !role_id){
+        res.status(400).json({msg: 'Missing information'});
+        return;
+    }
+
+        const user = [username, email, password, name, lastname, phone_number, role_id, is_active];
+
+    
+    let conn;
+
+    try{
+        conn = await pool.getConnection();
+
+const [usernameUser] = await conn.query(
+    usersModel.getByUsername,
+    [username],
+    (err) => {if (err) throw err;}
+    );
+    if (usernameUser){
+        res.status(409).json({msg: `User with username ${username} already exists`});
+        return;
+    }
+
+    const [emailUser] = await conn.query(
+        usersModel.getByEmail,
+        [email],
+        (err) => {if (err) throw err;}
+        );
+        if (emailUser){
+            res.status(409).json({msg: `User with email ${email} already exists`});
+            return;
+        }
+
+        const userAdded = await conn.query(usersModel.addRow, [...user], (err) => {
+            if (err) throw err;
+        })
+   if(userAdded.affectedRows = 0) throw new Error({msg: 'Failed to add user'});
+
+        res.json({msg: 'User add succesfully'});
+    } catch (error){
+        console.log(error);
+        res.status(500).json(error);
+
+    } finally {
+        if (conn) conn.end();
+    }
+}
+
+module.exports = {userslist, listUserByID, addUser};

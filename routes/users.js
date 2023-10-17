@@ -1,9 +1,9 @@
 const {Router} = require('express');
-const{userslist, listUserByID} = require('../controllers/users');
+const{userslist, listUserByID, addUser} = require('../controllers/users');
 const router = Router();
 //localhost:3000/api/v1/users/
 router.get('/', userslist);
 router.get('/:id', listUserByID)
-
+router.put('/', addUser);
 
 module.exports = router;
