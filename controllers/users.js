@@ -118,5 +118,104 @@ const [usernameUser] = await conn.query(
         if (conn) conn.end();
     }
 }
+const updateUser = async (req = request, res = response) => {
+    const{
+        username,
+        email, 
+        password,
+        name,
+        lastname,
+        phone_number,
+        role_id,
+        is_active
+    } = req.body;
 
-module.exports = {userslist, listUserByID, addUser};
+
+
+    const user = [username, email, password, name, lastname, phone_number, role_id, is_active];
+
+    let conn;
+
+    try {
+        conn = await pool.getConnection();
+
+        const [usernameUser] = await conn.query(usersModel.getByUsername, [username], (error) => {
+            if (err) throw err;
+        });
+
+        if (usernameUser) {
+            res.status(409).json({msg: `User with username ${username} already exists`});
+            return;
+        }
+
+        const [emailUser] = await conn.query(usersModel.getByEmail, [email], (error) => {
+            if (err) throw err;
+        });
+
+        if (emailUser) {
+            res.status(409).json({msg: `User with username ${email} already exists`});
+            return;
+        }
+
+        const {id} = req.params;
+
+        const [userExists] = await conn.query (
+            usersModel.getByID, [id], (err) => {if (err) throw err;}
+        );
+
+        if (!userExists) {
+            res.status(404).json({msg: 'User not found'});
+            return
+        }
+
+
+        const userupdated = await conn.query(usersModel.updateRow, [...user, id], (err) => {
+            if (err) throw err;
+        });
+        
+        
+        if (userupdated.affectedRows === 0) throw new Error({msg: 'Failed to update user'});
+
+        res.json({msg: 'User updated succesfully'});
+    } catch (error) {
+        console.log(error);
+        res.status(500).json(error);
+    } finally {
+        if (conn) conn.end();
+    }
+}
+const deleteUser = async (req = request, res = response) =>{
+    let conn;
+
+    try {
+        conn = await pool.getConnection();
+        const {id} = req.params;
+
+        const [userExists] = await conn.query(
+            usersModel.getByID,
+            [id],
+            (err) => {if (err) throw err;}
+        );
+            if (!userExists || userExists.is_active === 0){
+             res.status(404).json({msg: 'User not found'});
+             return;
+            }
+            const userDeleted = await conn.query(
+                usersModel.deleteRow,[id], 
+                (err) => {if (err) throw err;}
+            );
+            if (userDeleted.affectedRows === 0) {
+                throw new Error({msg: 'Failed to delete user'})
+            };
+            res.json({msg: 'User delete succesfully'});
+        } catch (error) {
+            console.log(error);
+            res.status(500).json(error);
+        
+        } finally {
+            if (conn) conn.end();
+        }
+        
+}
+
+module.exports = {userslist, listUserByID, addUser,updateUser, deleteUser};
