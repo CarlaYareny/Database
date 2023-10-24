@@ -19,13 +19,13 @@ let conn;
      res.status(500).json (error);
 } finally {
     if (conn) conn.end();
-}
-    
-    
-    
-}
+} 
+  
 
 
+}
+
+////////////////////
 
 const listUserByID = async (req=request, res = response) =>{
 const {id} = req.params;
@@ -60,6 +60,7 @@ let conn;
     
 }
 
+////////////////////
 const addUser = async (req = request, res = response)=>{
     const {
         username,
@@ -118,6 +119,8 @@ const [usernameUser] = await conn.query(
         if (conn) conn.end();
     }
 }
+
+////////////////////
 const updateUser = async (req = request, res = response) => {
     const{
         username,
@@ -130,14 +133,34 @@ const updateUser = async (req = request, res = response) => {
         is_active
     } = req.body;
 
+    let newUserData = [
+        username,
+        email,
+        password,
+        name,
+        lastname,
+        phone_number,
+        role_id,
+        is_active,
 
+    ];
 
-    const user = [username, email, password, name, lastname, phone_number, role_id, is_active];
 
     let conn;
 
     try {
         conn = await pool.getConnection();
+
+        const {id} = req.params;
+
+        const [userExists] = await conn.query(usersModel.getByID, [id], (err) => {
+            if (err) throw err;}
+            );
+
+        if (!userExists) {
+            res.status(404).json({msg: `User not found `});
+            return;
+        }
 
         const [usernameUser] = await conn.query(usersModel.getByUsername, [username], (error) => {
             if (err) throw err;
@@ -148,33 +171,38 @@ const updateUser = async (req = request, res = response) => {
             return;
         }
 
-        const [emailUser] = await conn.query(usersModel.getByEmail, [email], (error) => {
-            if (err) throw err;
-        });
 
-        if (emailUser) {
+        const [emailUser] = await conn.query (
+            usersModel.getByEmail, [email], (error) => {if (err) throw err;}
+        );
+        if (emailUser){
             res.status(409).json({msg: `User with username ${email} already exists`});
             return;
         }
 
-        const {id} = req.params;
+        const oldUserData = [
+            userExists.username,
+            userExists.email,
+            userExists.password,
+            userExists.name,
+            userExists.lastname,
+            userExists.phone_number,
+            userExists.role_id,
+            userExists.is_active
+        ];
 
-        const [userExists] = await conn.query (
-            usersModel.getByID, [id], (err) => {if (err) throw err;}
-        );
+        newUserData.forEach((userData, index) => {
+            if (!userData) {
+                newUserData[index] = oldUserData[index];
+            }
+        });
 
-        if (!userExists) {
-            res.status(404).json({msg: 'User not found'});
-            return
-        }
-
-
-        const userupdated = await conn.query(usersModel.updateRow, [...user, id], (err) => {
+        const userUpdated = await conn.query(usersModel.updateRow, [...newUserData, id], (err) => {
             if (err) throw err;
         });
+
         
-        
-        if (userupdated.affectedRows === 0) throw new Error({msg: 'Failed to update user'});
+        if (userUpdated.affectedRows === 0) throw new Error({msg: 'User not updated'});
 
         res.json({msg: 'User updated succesfully'});
     } catch (error) {
@@ -184,6 +212,8 @@ const updateUser = async (req = request, res = response) => {
         if (conn) conn.end();
     }
 }
+
+////////////////////
 const deleteUser = async (req = request, res = response) =>{
     let conn;
 
