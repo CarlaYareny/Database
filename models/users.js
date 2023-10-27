@@ -32,7 +32,7 @@ VALUES (
 `,
 getByUsername:`
 SELECT
-id
+*
 FROM
 Users
 WHERE

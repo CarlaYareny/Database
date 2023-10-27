@@ -1,4 +1,5 @@
-const {request, response} = require('express')
+const {request, response} = require('express');
+const bcrypt = require('bcrypt');
 const usersModel = require('../models/users');
 const pool = require('../db');
 
@@ -7,6 +8,7 @@ const userslist = async (req=request, res = response) =>{
 let conn;
     try{
         conn = await pool.getConnection();
+        
 
     const users = await conn.query(usersModel.getAll, (err) =>{
         if (err){
@@ -20,7 +22,6 @@ let conn;
 } finally {
     if (conn) conn.end();
 } 
-  
 
 
 }
@@ -77,7 +78,10 @@ const addUser = async (req = request, res = response)=>{
         return;
     }
 
-        const user = [username, email, password, name, lastname, phone_number, role_id, is_active];
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        const user = [username, email, passwordHash, name, lastname, phone_number, role_id, is_active];
 
     
     let conn;
@@ -133,10 +137,20 @@ const updateUser = async (req = request, res = response) => {
         is_active
     } = req.body;
 
+
+    const {id} = req.params;
+
+    let passwordHash;
+
+    if (password) {
+        const saltRounds = 10;
+        passwordHash = await bcrypt.hash(password, saltRounds);
+    }
+
     let newUserData = [
         username,
         email,
-        password,
+        passwordHash,
         name,
         lastname,
         phone_number,
@@ -248,4 +262,47 @@ const deleteUser = async (req = request, res = response) =>{
         
 }
 
-module.exports = {userslist, listUserByID, addUser,updateUser, deleteUser};
+//////////
+
+const signIn = async (req = request, res = response) =>{
+    const {username, password} = req.body;
+    let conn;
+
+if(!username || !password){
+    res.status(400).json({msg: 'Username and password are requerid'});
+    return;
+}
+    try{
+        conn = await pool.getConnection();
+
+    const [user] = await conn.query(
+        usersModel.getByUsername,
+        [username],
+        (err) => {if (err) throw err;}
+    )
+    if (!user || user.is_active === 0){
+        res.status(404).json({msg: 'Wrong username or password'});
+        return;
+    }
+
+    const passwordOk = bcrypt.compare(password, user.password);
+    if (!passwordOk){
+        res.status(404).json({msg: 'Wrong username or password'});
+        return;
+    }
+    delete user.password;
+    delete user.created_at;
+    delete user.updated_at;
+    res.json(user);
+    }catch (error) {
+        console.log(error);
+        res.status(500).json(error);
+    }finally{
+        if (conn) conn.end();
+    }
+    }
+
+
+
+
+module.exports = {userslist, listUserByID, addUser,updateUser, deleteUser, signIn};
